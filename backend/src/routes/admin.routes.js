@@ -4,7 +4,7 @@ import {
   getAllUser,
   getUserById,
   createUser,
-  softDelete,
+  deleteUser,
   getTicketsByStatus,
   getTicketById,
   assignStaff,
@@ -14,6 +14,10 @@ import {
   getCommentByTicket,
   updateUser,
   getAllStaff,
+  delteTicket,
+  updateTicket,
+  createTicket,
+  getDashBoard,
 } from "../controllers/admin.controller.js";
 
 import { protect } from "../middleware/auth.middleware.js";
@@ -36,7 +40,7 @@ router.post("/users", createUser);
 
 router.get("/users/:id", getUserById);
 
-router.delete("/users/:id", softDelete);
+router.delete("/users/:id", deleteUser);
 
 router.put("/users/:id", updateUser);
 
@@ -44,7 +48,13 @@ router.put("/users/:id", updateUser);
 
 router.get("/tickets", getTicketsByStatus);
 
+router.post("/tickets", createTicket);
+
 router.get("/tickets/:id", getTicketById);
+
+router.delete("/tickets/:id", delteTicket);
+
+router.put("/tickets/:id", updateTicket);
 
 router.patch("/tickets/changeStatus/:tktid", changeStatus);
 
@@ -59,5 +69,9 @@ router.get("/ticket-comment/:id", getCommentByTicket);
 // dropdown
 
 router.get("/dropdown/staff", dropdownStaff);
+
+// DASHBOARD
+
+router.get("/dashboard", getDashBoard);
 
 export default router;

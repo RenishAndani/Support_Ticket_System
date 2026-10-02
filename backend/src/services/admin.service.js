@@ -1,5 +1,5 @@
 import bcrypt from "bcrypt";
-import { eq } from "drizzle-orm";
+import { eq, aliasedTable, count } from "drizzle-orm";
 
 import { db } from "../db/index.js";
 import { users, tickets, ticketComments } from "../../drizzle/schema.ts";
@@ -42,8 +42,8 @@ export const createUserService = async ({ name, email, password, role }) => {
   return user.rowCount;
 };
 
-export const softDeleteUserService = async (id) => {
-  const result = await db.update(users).set({ isActive: false }).where(eq(users.userid, id));
+export const deleteUserService = async (id) => {
+  const result = await db.delete(users).where(eq(users.userid, id));
 
   return result;
 };
@@ -77,7 +77,29 @@ export const getTicketByStatusService = async (status) => {
 };
 
 export const getTicketByIdService = async (id) => {
-  const [ticket] = await db.select().from(tickets).where(eq(tickets.id, id));
+  const staff = aliasedTable(users, "users_staff");
+  const customer = aliasedTable(users, "users_customer");
+  console.log(id);
+
+  const [ticket] = await db
+    .select({ ...tickets, staffName: staff.name, customerName: customer.name })
+    .from(tickets)
+    .where(eq(tickets.id, id))
+    .leftJoin(staff, eq(tickets.assignedTo, staff.userid))
+    .innerJoin(customer, eq(tickets.customerId, customer.userid));
+
+  return ticket;
+};
+
+export const createTicketService = async (data) => {
+  const ticket = await db.insert(tickets).values({
+    subject: data.subject,
+    description: data.description,
+    status: data.status,
+    priority: data.priority,
+    customerId: data.customerId,
+    assignedTo: data.assignedTo,
+  });
 
   return ticket;
 };
@@ -106,6 +128,30 @@ export const changeStatusService = async (tktid, status) => {
   return result;
 };
 
+export const updateTicketService = async (id, data) => {
+  const ticket = await getTicketByIdService(id);
+
+  if (!ticket) {
+    return false;
+  }
+
+  const result = await db.update(tickets).set(data).where(eq(tickets.id, id));
+
+  return result;
+};
+
+export const deleteTicketService = async (id) => {
+  const ticket = await getTicketByIdService(id);
+
+  if (!ticket) {
+    return false;
+  }
+
+  const result = await db.delete(tickets).where(eq(tickets.id, id));
+
+  return result;
+};
+
 // ticket comment
 
 export const addCommentService = async (tktid, userid, message) => {
@@ -124,7 +170,12 @@ export const addCommentService = async (tktid, userid, message) => {
 
 export const getCommentByTicketService = async (id) => {
   const comments = await db
-    .select({ userid: users.userid, name: users.name, message: ticketComments.message })
+    .select({
+      userid: users.userid,
+      name: users.name,
+      message: ticketComments.message,
+      createdAt: ticketComments.createdAt,
+    })
     .from(ticketComments)
     .where(eq(ticketComments.ticketId, id))
     .innerJoin(users, eq(ticketComments.userId, users.userid));
@@ -140,4 +191,29 @@ export const dropdownStaffService = async () => {
     .where(eq(users.role, "staff"));
 
   return staff;
+};
+
+// DASHBOARD
+
+export const getDashBoardService = async () => {
+  const statusBreakdown = await db
+    .select({
+      status: tickets.status,
+      count: count(),
+    })
+    .from(tickets)
+    .groupBy(tickets.status);
+
+  console.log(statusBreakdown);
+
+  const roleBreakdown = await db
+    .select({
+      role: users.role, // The distinct role name (e.g., 'admin', 'staff', 'customer')
+      userCount: count(), // The total count of users assigned to that role
+    })
+    .from(users)
+    .groupBy(users.role);
+
+  const result = { status: statusBreakdown, role: roleBreakdown };
+  return result;
 };

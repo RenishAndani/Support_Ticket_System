@@ -3,7 +3,23 @@ import {
   addCommentService,
   getTicketByIdService,
   getCommentByTicketService,
+  getAssignedTicketService,
+  getDetailTicketByIdService,
 } from "../services/staff.service.js";
+
+export const getAssignedTicket = async (req, res, next) => {
+  const userid = req.user.userid;
+
+  if (!userid) {
+    return res.status(401).json({ message: "unauthorized" });
+  }
+
+  const { status } = req.query;
+
+  const tickets = await getAssignedTicketService(userid, status);
+
+  res.json(tickets);
+};
 
 export const changeStatus = async (req, res, next) => {
   try {
@@ -21,19 +37,39 @@ export const changeStatus = async (req, res, next) => {
       return res.json({ message: "please send valid status" });
     }
 
-    const result = await changeStatusService(tktid, status);
+    const ticket = await getTicketByIdService(tktid);
 
-    if (!result) {
+    if (!ticket) {
       return res.status(404).json({ message: "ticket not found" });
     }
 
-    console.log(result);
-
-    if (req.user.userid !== result.assignedTo) {
+    if (req.user.userid !== ticket.assignedTo) {
       return res.status(401).json({ message: "you are not authorize to change" });
     }
 
+    const result = await changeStatusService(tktid, status);
+
     res.json({ count: result.rowCount, message: "change successfully" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getDetailTicketById = async (req, res, next) => {
+  try {
+    const id = req.params.id;
+
+    const ticket = await getDetailTicketByIdService(id);
+
+    if (!ticket) {
+      return res.status(404).json({ message: "ticket not found" });
+    }
+
+    if (req.user.userid !== ticket.assignedTo) {
+      return res.status(401).json({ message: "you are not authorize to change" });
+    }
+
+    res.json(ticket);
   } catch (error) {
     next(error);
   }
@@ -87,7 +123,7 @@ export const getCommentByTicket = async (req, res, next) => {
 
     const comments = await getCommentByTicketService(id);
 
-    res.status(200).json({ data: comments });
+    res.status(200).json(comments);
   } catch (error) {
     next(error);
   }

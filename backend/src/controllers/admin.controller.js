@@ -2,7 +2,7 @@ import {
   getAllUserService,
   getUserByIdService,
   createUserService,
-  softDeleteUserService,
+  deleteUserService,
   assignStaffService,
   getTicketByStatusService,
   getTicketByIdService,
@@ -12,8 +12,12 @@ import {
   getCommentByTicketService,
   updateUserService,
   getAllStaffService,
+  deleteTicketService,
+  updateTicketService,
+  createTicketService,
+  getDashBoardService,
 } from "../services/admin.service.js";
-import { newUserSchema, updateUserSchema } from "../validators/admin.validator.js";
+import { newUserSchema, updateUserSchema, newTicketSchema } from "../validators/admin.validator.js";
 
 export const getAllUser = async (req, res, next) => {
   try {
@@ -65,15 +69,15 @@ export const createUser = async (req, res, next) => {
   }
 };
 
-export const softDelete = async (req, res, next) => {
+export const deleteUser = async (req, res, next) => {
   try {
     const id = req.params.id;
 
     console.log(id);
 
-    const result = await softDeleteUserService(id);
+    const result = await deleteUserService(id);
 
-    res.json({ updateCount: result.rowCount });
+    res.json({ deleteCount: result.rowCount });
   } catch (error) {
     next(error);
   }
@@ -103,11 +107,11 @@ export const updateUser = async (req, res, next) => {
 
 export const getTicketsByStatus = async (req, res, next) => {
   try {
-    const status = req.body.status;
+    const { status } = req.query;
 
     const data = await getTicketByStatusService(status);
 
-    res.json({ data: data });
+    res.json(data);
   } catch (error) {
     next(error);
   }
@@ -122,8 +126,33 @@ export const getTicketById = async (req, res, next) => {
     if (!ticket) {
       return res.status(404).json({ message: "ticket not found" });
     }
-
     res.json(ticket);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const createTicket = async (req, res, next) => {
+  try {
+    const result = newTicketSchema.safeParse(req.body);
+
+    if (!result.success) {
+      // If not satisfied, return a 400 Bad Request with the error breakdown
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        // format() turns the complex Zod error into a clean, readable object map
+        errors: result.error.format(),
+      });
+    }
+
+    const validatedData = result.data;
+
+    console.log(req.user);
+
+    const ticket = await createTicketService({ customerId: req.user.userid, ...validatedData });
+
+    res.json({ count: ticket.rowCount, message: "add ticket successfully" });
   } catch (error) {
     next(error);
   }
@@ -183,6 +212,51 @@ export const changeStatus = async (req, res, next) => {
   }
 };
 
+export const updateTicket = async (req, res, next) => {
+  try {
+    const id = req.params.id;
+
+    console.log("hi id");
+
+    console.log(id);
+
+    const data = req.body;
+
+    console.log("hi controller");
+
+    console.log(data);
+
+    const result = await updateTicketService(id, data);
+
+    if (!result) {
+      res.status(404).json({ message: "ticket not found" });
+    }
+
+    res.json({ count: result.rowCount, message: "update successfully" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const delteTicket = async (req, res, next) => {
+  try {
+    const id = req.params.id;
+    console.log(id);
+
+    const result = await deleteTicketService(id);
+
+    console.log(result);
+
+    if (!result) {
+      res.status(404).json({ message: "ticket not found" });
+    }
+
+    res.json({ count: result.rowCount, message: "delete successfully" });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // ticket comment
 
 export const addComment = async (req, res, next) => {
@@ -221,7 +295,7 @@ export const getCommentByTicket = async (req, res, next) => {
 
     const comments = await getCommentByTicketService(id);
 
-    res.status(200).json({ data: comments });
+    res.status(200).json(comments);
   } catch (error) {
     next(error);
   }
@@ -233,7 +307,19 @@ export const dropdownStaff = async (req, res, next) => {
   try {
     const staff = await dropdownStaffService();
 
-    res.json({ staff: staff });
+    res.json(staff);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// DASHBOARD
+
+export const getDashBoard = async (req, res, next) => {
+  try {
+    const result = await getDashBoardService();
+
+    res.json(result);
   } catch (error) {
     next(error);
   }

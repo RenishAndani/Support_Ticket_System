@@ -1,14 +1,12 @@
 import { Outlet, Link, useLocation } from "react-router-dom";
 
-const AdminLayout = () => {
+const StaffLayout = () => {
   const location = useLocation();
 
   // Menu items array
   const menuItems = [
-    {name:"DashBoard",path:"/admin"},
-    { name: "Staff", path: "/admin/staff" },
-    { name: "Tickets", path: "/admin/tickets" },
-    { name: "Users", path: "/admin/users" },
+    { name: "DashBoard", path: "/staff" },
+    { name: "AssignedTicket", path: "/staff/assigned-tickets" },
   ];
 
   return (
@@ -56,4 +54,4 @@ const AdminLayout = () => {
   );
 };
 
-export default AdminLayout;
+export default StaffLayout;
