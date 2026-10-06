@@ -34,10 +34,18 @@ const AuthPage = () => {
 
   // Method to handle register request (Keep empty/ready for your logic)
   const handleRegisterSubmit = async (e) => {
-    e.preventDefault();
-    const res = await api.post("/auth/register", formData);
+    try {
+      e.preventDefault();
+      const res = await api.post("/auth/register", formData);
+      if (res.success) {
+        alert("please login via this credential register successfully");
+        isLogin(true);
+      }
+    } catch (error) {
+      const message = error.response.data.message;
 
-    console.log(res);
+      alert(message);
+    }
   };
 
   return (

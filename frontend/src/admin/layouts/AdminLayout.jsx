@@ -1,11 +1,26 @@
-import { Outlet, Link, useLocation } from "react-router-dom";
+import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
+import api from "../../api/api";
 
 const AdminLayout = () => {
   const location = useLocation();
 
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await api.post("/auth/logout");
+    } catch (err) {
+      console.error("Logout API failed:", err);
+    } finally {
+      // Clear local storage / tokens if any, then navigate
+      localStorage.clear();
+      navigate("/");
+    }
+  };
+
   // Menu items array
   const menuItems = [
-    {name:"DashBoard",path:"/admin"},
+    { name: "DashBoard", path: "/admin" },
     { name: "Staff", path: "/admin/staff" },
     { name: "Tickets", path: "/admin/tickets" },
     { name: "Users", path: "/admin/users" },
@@ -14,8 +29,14 @@ const AdminLayout = () => {
   return (
     <div className='flex flex-col h-screen bg-gray-100 font-sans'>
       {/* Header */}
-      <header className='h-16 bg-white border-b border-gray-200 flex items-center px-6 shadow-sm z-10'>
+      <header className='h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 shadow-sm z-10'>
         <h1 className='text-xl font-bold text-gray-800'>My Dashboard</h1>
+        <button
+          onClick={handleLogout}
+          className='px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-sm font-semibold transition-colors'
+        >
+          Logout
+        </button>
       </header>
 
       {/* Main Container (Sidebar + Content Area) */}

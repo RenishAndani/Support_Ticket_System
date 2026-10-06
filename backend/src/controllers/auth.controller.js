@@ -8,6 +8,10 @@ export const register = async (req, res, next) => {
 
     const user = await registerUser(data);
 
+    if (user === "exist") {
+      res.status(400).json({ message: "already exist" });
+    }
+
     res.status(201).json({
       success: true,
       message: "User registered successfully",
@@ -36,6 +40,20 @@ export const login = async (req, res, next) => {
       message: "Login successful",
       data: result.user,
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const logout = async (req, res, next) => {
+  try {
+    res.clearCookie("token", {
+      httpOnly: true,
+      secure: false, // Must match your login configuration
+      sameSite: "lax",
+    });
+
+    res.status(200).json({ message: "logout successfully" });
   } catch (error) {
     next(error);
   }

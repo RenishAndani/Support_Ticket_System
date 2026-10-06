@@ -12,6 +12,10 @@ import AddTicket from "./admin/pages/AddTicket";
 import StaffLayout from "./staff/layouts/StaffLayout";
 import StaffDashBoard from "./staff/pages/StaffDashBoard";
 import AssignedTickets from "./staff/pages/AssignedTickets";
+import UserLayout from "./user/layouts/UserLayout";
+import UserDashBoard from "./user/pages/UserDashBoard";
+import MyTickets from "./user/pages/MyTicket";
+import TicketForm from "./user/pages/TicketForm";
 
 function App() {
   return (
@@ -34,6 +38,13 @@ function App() {
           <Route path='/staff' element={<StaffLayout />}>
             <Route index element={<StaffDashBoard />} replace />
             <Route path='assigned-tickets' element={<AssignedTickets />} />
+          </Route>
+
+          {/* =====================USER=================== */}
+          <Route path='/user' element={<UserLayout />}>
+            <Route index element={<UserDashBoard />} replace />
+            <Route path='my-tickets' element={<MyTickets />} />
+            <Route path='ticket-form/:id?' element={<TicketForm />} />
           </Route>
         </Routes>
       </BrowserRouter>

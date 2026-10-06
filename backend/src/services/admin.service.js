@@ -59,6 +59,27 @@ export const updateUserService = async (id, { name, email, role }) => {
 export const getTicketByStatusService = async (status) => {
   const statuses = ["open", "in_progress", "waiting_for_user", "resolved", "closed"];
 
+  const staff = aliasedTable(users, "users_staff");
+  const customer = aliasedTable(users, "users_customer");
+
+  if (!status) {
+    const openTickets = await db
+      .select({
+        id: tickets.id,
+        subject: tickets.subject,
+        description: tickets.description,
+        status: tickets.status,
+        staffName: staff.name,
+        staff_id: staff.roleId,
+        customerName: customer.name,
+        customer_id: customer.roleId,
+      })
+      .from(tickets)
+      .leftJoin(staff, eq(tickets.assignedTo, staff.userid))
+      .innerJoin(customer, eq(tickets.customerId, customer.userid));
+    return openTickets;
+  }
+
   if (!statuses.includes(status)) {
     return "please send valid status";
   }
@@ -69,9 +90,15 @@ export const getTicketByStatusService = async (status) => {
       subject: tickets.subject,
       description: tickets.description,
       status: tickets.status,
+      staffName: staff.name,
+      staff_id: staff.roleId,
+      customerName: customer.name,
+      customer_id: customer.roleId,
     })
     .from(tickets)
-    .where(eq(tickets.status, status));
+    .where(eq(tickets.status, status))
+    .leftJoin(staff, eq(tickets.assignedTo, staff.userid))
+    .innerJoin(customer, eq(tickets.customerId, customer.userid));
 
   return openTickets;
 };

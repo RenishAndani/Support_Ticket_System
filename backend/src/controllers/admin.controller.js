@@ -148,8 +148,6 @@ export const createTicket = async (req, res, next) => {
 
     const validatedData = result.data;
 
-    console.log(req.user);
-
     const ticket = await createTicketService({ customerId: req.user.userid, ...validatedData });
 
     res.json({ count: ticket.rowCount, message: "add ticket successfully" });

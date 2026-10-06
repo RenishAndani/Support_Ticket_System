@@ -1,8 +1,9 @@
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import api from "../../api/api";
 
-const StaffLayout = () => {
+const UserLayout = () => {
   const location = useLocation();
+
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -19,8 +20,8 @@ const StaffLayout = () => {
 
   // Menu items array
   const menuItems = [
-    { name: "DashBoard", path: "/staff" },
-    { name: "AssignedTicket", path: "/staff/assigned-tickets" },
+    { name: "DashBoard", path: "/user" },
+    { name: "MyTicket", path: "/user/my-tickets" },
   ];
 
   return (
@@ -74,4 +75,4 @@ const StaffLayout = () => {
   );
 };
 
-export default StaffLayout;
+export default UserLayout;

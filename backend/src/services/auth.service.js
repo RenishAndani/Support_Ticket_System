@@ -10,7 +10,7 @@ export const registerUser = async ({ name, email, password }) => {
   const existingUser = await db.select().from(users).where(eq(users.email, email));
 
   if (existingUser.length > 0) {
-    throw new Error("Email already registered");
+    return "exist";
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);

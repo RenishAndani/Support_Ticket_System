@@ -1,7 +1,10 @@
-import { pgTable, foreignKey, check, serial, varchar, text, integer, timestamp, real, unique, boolean } from "drizzle-orm/pg-core"
+import { pgTable, foreignKey, check, serial, varchar, text, integer, timestamp, real, unique, boolean, pgSequence } from "drizzle-orm/pg-core"
 import { sql } from "drizzle-orm"
 
 
+export const seqUser = pgSequence("seq_user", {  startWith: "1", increment: "1", minValue: "1", maxValue: "9223372036854775807", cache: "1", cycle: false })
+export const seqAdmin = pgSequence("seq_admin", {  startWith: "1", increment: "1", minValue: "1", maxValue: "9223372036854775807", cache: "1", cycle: false })
+export const seqStaff = pgSequence("seq_staff", {  startWith: "1", increment: "1", minValue: "1", maxValue: "9223372036854775807", cache: "1", cycle: false })
 
 export const tickets = pgTable("tickets", {
 	id: serial().primaryKey().notNull(),
@@ -42,6 +45,7 @@ export const users = pgTable("users", {
 	isActive: boolean("is_active").default(true).notNull(),
 	createdAt: timestamp("created_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+	roleId: varchar("role_id", { length: 50 }),
 }, (table) => [
 	unique("users_email_key").on(table.email),
 	check("users_role_check", sql`(role)::text = ANY ((ARRAY['user'::character varying, 'admin'::character varying, 'staff'::character varying])::text[])`),
