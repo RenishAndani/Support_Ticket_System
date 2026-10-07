@@ -9,7 +9,7 @@ export const register = async (req, res, next) => {
     const user = await registerUser(data);
 
     if (user === "exist") {
-      res.status(400).json({ message: "already exist" });
+      res.status(400).json({ message: "email already exist" });
     }
 
     res.status(201).json({
@@ -27,6 +27,14 @@ export const login = async (req, res, next) => {
     const data = loginSchema.parse(req.body);
 
     const result = await loginUser(data);
+
+    if (result === "Invalid") {
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
+
+    if (result === "Invalid email or password") {
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
 
     res.cookie("token", result.token, {
       httpOnly: true,

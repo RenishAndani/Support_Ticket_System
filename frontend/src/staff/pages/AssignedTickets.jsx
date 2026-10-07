@@ -6,6 +6,7 @@ const AssignedTickets = () => {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
   const navigate = useNavigate();
 
   // Status Filter State
@@ -34,6 +35,7 @@ const AssignedTickets = () => {
     { label: "Resolved", value: "resolved" },
     { label: "Closed", value: "closed" },
   ];
+  const statusFilterOptions = [{ label: "All", value: "all" }, ...statusOptions];
 
   // Fetch tickets whenever currentStatus changes
   useEffect(() => {
@@ -43,9 +45,8 @@ const AssignedTickets = () => {
   const fetchAssignedTicketsByStatus = async (status) => {
     try {
       setLoading(true);
-      // GET /staff/tickets with query parameter status
       const response = await api.get(`/staff/tickets`, {
-        params: { status },
+        params: status === "all" ? {} : { status },
       });
       setTickets(response.data.tickets || response.data || []);
       setError(null);
@@ -160,6 +161,13 @@ const AssignedTickets = () => {
     return styles[priority] || "bg-gray-100 text-gray-700";
   };
 
+  const normalizedSearchTerm = searchTerm.trim().toLowerCase();
+  const filteredTickets = tickets.filter((ticket) =>
+    Object.values(ticket).some(
+      (value) => value != null && String(value).toLowerCase().includes(normalizedSearchTerm),
+    ),
+  );
+
   return (
     <div className='space-y-6'>
       {/* Header & Status Filter Selector */}
@@ -173,7 +181,7 @@ const AssignedTickets = () => {
 
         {/* Status Selection Tabs */}
         <div className='flex flex-wrap items-center gap-2 w-full sm:w-auto justify-between sm:justify-end pb-2 sm:pb-0 overflow-x-auto'>
-          {statusOptions.map((opt) => (
+          {statusFilterOptions.map((opt) => (
             <button
               key={opt.value}
               onClick={() => setCurrentStatus(opt.value)}
@@ -198,114 +206,175 @@ const AssignedTickets = () => {
         ) : error ? (
           <div className='bg-red-50 text-red-600 p-4 m-4 rounded-md'>{error}</div>
         ) : (
-          <div className='overflow-x-auto'>
-            <table className='min-w-full divide-y divide-gray-200 text-left'>
-              <thead className='bg-gray-50'>
-                <tr>
-                  <th className='px-6 py-3 text-xs font-semibold text-gray-500 uppercase'>
-                    Ticket ID
-                  </th>
-                  <th className='px-6 py-3 text-xs font-semibold text-gray-500 uppercase'>
-                    Subject / Description
-                  </th>
-                  <th className='px-6 py-3 text-xs font-semibold text-gray-500 uppercase'>
-                    Priority
-                  </th>
-                  <th className='px-6 py-3 text-xs font-semibold text-gray-500 uppercase'>
-                    Status (Update)
-                  </th>
-                  <th className='px-6 py-3 text-xs font-semibold text-gray-500 uppercase text-right'>
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className='bg-white divide-y divide-gray-200'>
-                {tickets.length > 0 ? (
-                  tickets.map((ticket) => {
-                    const tid = ticket.ticketid || ticket.id;
-                    return (
-                      <tr key={tid} className='hover:bg-gray-50 transition-colors'>
-                        <td className='px-6 py-4 text-sm font-medium text-gray-900'>{tid}</td>
-                        <td className='px-6 py-4 text-sm text-gray-700 font-medium'>
-                          <div className='font-semibold text-gray-900'>{ticket.subject}</div>
-                          <div className='text-xs text-gray-500 line-clamp-1 mt-0.5'>
-                            {ticket.description}
-                          </div>
-                        </td>
-                        <td className='px-6 py-4 text-sm'>
-                          <span
-                            className={`px-2.5 py-1 text-xs font-semibold rounded-full ${getPriorityBadge(
-                              ticket.priority,
-                            )}`}
-                          >
-                            {ticket.priority || "Medium"}
-                          </span>
-                        </td>
-                        <td className='px-6 py-4 text-sm'>
-                          <div className='flex items-center gap-2'>
-                            <select
-                              value={
-                                selectedStatuses[tid] !== undefined
-                                  ? selectedStatuses[tid]
-                                  : ticket.status
-                              }
-                              onChange={(e) => handleStatusSelectChange(tid, e.target.value)}
-                              className={`px-2.5 py-1 text-xs font-semibold rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${getStatusBadge(
-                                selectedStatuses[tid] !== undefined
-                                  ? selectedStatuses[tid]
-                                  : ticket.status,
+          <>
+            <div className='p-4 border-b border-gray-200'>
+              <label
+                htmlFor='assigned-ticket-search'
+                className='block text-sm font-medium text-gray-700 mb-1'
+              >
+                Search tickets
+              </label>
+              <input
+                id='assigned-ticket-search'
+                type='search'
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder='Search any ticket field...'
+                className='w-full sm:max-w-md px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm'
+              />
+            </div>
+            <div className='overflow-x-auto'>
+              <table className='w-full min-w-[1700px] table-fixed divide-y divide-gray-200 text-left'>
+                <thead className='bg-gray-50'>
+                  <tr>
+                    <th className='w-20 px-4 py-3 text-xs font-semibold text-gray-500 uppercase'>
+                      Ticket ID
+                    </th>
+                    <th className='w-36 px-4 py-3 text-xs font-semibold text-gray-500 uppercase'>
+                      Subject
+                    </th>
+                    <th className='w-56 px-4 py-3 text-xs font-semibold text-gray-500 uppercase'>
+                      Description
+                    </th>
+                    <th className='w-28 px-4 py-3 text-xs font-semibold text-gray-500 uppercase'>
+                      Priority
+                    </th>
+                    <th className='w-48 px-4 py-3 text-xs font-semibold text-gray-500 uppercase'>
+                      Status (Update)
+                    </th>
+                    <th className='w-32 px-4 py-3 text-xs font-semibold text-gray-500 uppercase'>
+                      Staff Name
+                    </th>
+                    <th className='w-32 px-4 py-3 text-xs font-semibold text-gray-500 uppercase'>
+                      Staff ID
+                    </th>
+                    <th className='w-36 px-4 py-3 text-xs font-semibold text-gray-500 uppercase'>
+                      Customer Name
+                    </th>
+                    <th className='w-36 px-4 py-3 text-xs font-semibold text-gray-500 uppercase'>
+                      Customer ID
+                    </th>
+                    <th className='w-48 px-4 py-3 text-xs font-semibold text-gray-500 uppercase'>
+                      Created At
+                    </th>
+                    <th className='w-48 px-4 py-3 text-xs font-semibold text-gray-500 uppercase'>
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className='bg-white divide-y divide-gray-200'>
+                  {filteredTickets.length > 0 ? (
+                    filteredTickets.map((ticket) => {
+                      const tid = ticket.id ?? ticket.ticketid;
+                      return (
+                        <tr key={tid} className='hover:bg-gray-50 transition-colors'>
+                          <td className='px-4 py-4 text-sm font-medium text-gray-900'>{tid}</td>
+                          <td className='px-4 py-4 text-sm font-medium text-gray-900 break-words'>
+                            {ticket.subject || ticket.title || "N/A"}
+                          </td>
+                          <td className='px-4 py-4 text-sm text-gray-700 whitespace-pre-wrap break-words'>
+                            {ticket.description || "N/A"}
+                          </td>
+                          <td className='px-4 py-4 text-sm'>
+                            <span
+                              className={`px-2.5 py-1 text-xs font-semibold rounded-full ${getPriorityBadge(
+                                ticket.priority,
                               )}`}
                             >
-                              {statusOptions.map((opt) => (
-                                <option
-                                  key={opt.value}
-                                  value={opt.value}
-                                  className='bg-white text-gray-800'
-                                >
-                                  {opt.label}
-                                </option>
-                              ))}
-                            </select>
-                            <button
-                              onClick={() => handleStatusChange(tid, ticket.status)}
-                              disabled={
-                                selectedStatuses[tid] === undefined ||
-                                selectedStatuses[tid] === ticket.status
-                              }
-                              className='px-2.5 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded text-xs font-medium transition-colors whitespace-nowrap'
-                            >
-                              Save
-                            </button>
-                          </div>
-                        </td>
-                        <td className='px-6 py-4 text-right text-sm space-x-2'>
-                          <button
-                            onClick={() => handleDetailClick(tid)}
-                            className='text-gray-700 bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded transition-colors font-medium text-xs'
-                          >
-                            Detail
-                          </button>
-                          <button
-                            onClick={() => handleAddCommentClick(tid)}
-                            className='text-green-600 bg-green-50 hover:bg-green-100 px-3 py-1 rounded transition-colors font-medium text-xs'
-                          >
-                            Add Comment
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })
-                ) : (
-                  <tr>
-                    <td colSpan='5' className='px-6 py-8 text-center text-gray-500'>
-                      No assigned tickets found with status:{" "}
-                      <strong className='capitalize'>{currentStatus.replace(/_/g, " ")}</strong>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                              {ticket.priority || "Medium"}
+                            </span>
+                          </td>
+                          <td className='px-4 py-4 text-sm'>
+                            <div className='flex flex-wrap items-center gap-2'>
+                              <select
+                                value={
+                                  selectedStatuses[tid] !== undefined
+                                    ? selectedStatuses[tid]
+                                    : ticket.status
+                                }
+                                onChange={(e) => handleStatusSelectChange(tid, e.target.value)}
+                                className={`px-2.5 py-1 text-xs font-semibold rounded-md border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 ${getStatusBadge(
+                                  selectedStatuses[tid] !== undefined
+                                    ? selectedStatuses[tid]
+                                    : ticket.status,
+                                )}`}
+                              >
+                                {statusOptions.map((opt) => (
+                                  <option
+                                    key={opt.value}
+                                    value={opt.value}
+                                    className='bg-white text-gray-800'
+                                  >
+                                    {opt.label}
+                                  </option>
+                                ))}
+                              </select>
+                              <button
+                                onClick={() => handleStatusChange(tid, ticket.status)}
+                                disabled={
+                                  selectedStatuses[tid] === undefined ||
+                                  selectedStatuses[tid] === ticket.status
+                                }
+                                className='px-2.5 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white rounded text-xs font-medium transition-colors whitespace-nowrap'
+                              >
+                                Save
+                              </button>
+                            </div>
+                          </td>
+                          <td className='px-4 py-4 text-sm text-gray-700 break-words'>
+                            {ticket.staffName || "Unassigned"}
+                          </td>
+                          <td className='px-4 py-4 text-sm text-gray-700 break-words'>
+                            {ticket.staff_id || "N/A"}
+                          </td>
+                          <td className='px-4 py-4 text-sm text-gray-700 break-words'>
+                            {ticket.customerName || "N/A"}
+                          </td>
+                          <td className='px-4 py-4 text-sm text-gray-700 break-words'>
+                            {ticket.customer_id || "N/A"}
+                          </td>
+                          <td className='px-4 py-4 text-sm text-gray-700'>
+                            {ticket.createdAt ? new Date(ticket.createdAt).toLocaleString() : "N/A"}
+                          </td>
+                          <td className='px-4 py-4 text-sm'>
+                            <div className='flex flex-wrap gap-2'>
+                              <button
+                                onClick={() => handleDetailClick(tid)}
+                                className='whitespace-nowrap text-gray-700 bg-gray-100 hover:bg-gray-200 px-2.5 py-1.5 rounded transition-colors font-medium text-xs'
+                              >
+                                Detail
+                              </button>
+                              <button
+                                onClick={() => handleAddCommentClick(tid)}
+                                className='whitespace-nowrap text-green-600 bg-green-50 hover:bg-green-100 px-2.5 py-1.5 rounded transition-colors font-medium text-xs'
+                              >
+                                Add Comment
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan='11' className='px-6 py-8 text-center text-gray-500'>
+                        {normalizedSearchTerm ? (
+                          "No assigned tickets match your search."
+                        ) : (
+                          <>
+                            No assigned tickets found with status:{" "}
+                            <strong className='capitalize'>
+                              {currentStatus === "all" ? "all" : currentStatus.replace(/_/g, " ")}
+                            </strong>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
       {/* Chat-style Comment Modal */}

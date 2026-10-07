@@ -11,6 +11,28 @@ export const getTicketByIdService = async (id) => {
 
 export const getAssignedTicketService = async (id, status) => {
   const statuses = ["open", "in_progress", "waiting_for_user", "resolved", "closed"];
+  const staff = aliasedTable(users, "users_staff");
+  const customer = aliasedTable(users, "users_customer");
+
+  if (!status) {
+    const openTickets = await db
+      .select({
+        id: tickets.id,
+        subject: tickets.subject,
+        description: tickets.description,
+        status: tickets.status,
+        staffName: staff.name,
+        staff_id: staff.roleId,
+        customerName: customer.name,
+        customer_id: customer.roleId,
+        createdAt: tickets.createdAt,
+      })
+      .from(tickets)
+      .where(eq(tickets.assignedTo, id))
+      .leftJoin(staff, eq(tickets.assignedTo, staff.userid))
+      .innerJoin(customer, eq(tickets.customerId, customer.userid));
+    return openTickets;
+  }
 
   if (!statuses.includes(status)) {
     return "please send valid status";
@@ -22,10 +44,16 @@ export const getAssignedTicketService = async (id, status) => {
       subject: tickets.subject,
       description: tickets.description,
       status: tickets.status,
-      priority: tickets.priority,
+      staffName: staff.name,
+      staff_id: staff.roleId,
+      customerName: customer.name,
+      customer_id: customer.roleId,
+      createdAt: tickets.createdAt,
     })
     .from(tickets)
-    .where(and(eq(tickets.status, status), eq(tickets.assignedTo, id)));
+    .where(and(eq(tickets.status, status), eq(tickets.assignedTo, id)))
+    .leftJoin(staff, eq(tickets.assignedTo, staff.userid))
+    .innerJoin(customer, eq(tickets.customerId, customer.userid));
 
   return openTickets;
 };

@@ -1,12 +1,18 @@
 import bcrypt from "bcrypt";
-import { eq, aliasedTable, count } from "drizzle-orm";
+import { eq, and, or, ilike, isNull, isNotNull, sql, aliasedTable, count } from "drizzle-orm";
 
 import { db } from "../db/index.js";
 import { users, tickets, ticketComments } from "../../drizzle/schema.ts";
 
 export const getAllUserService = async () => {
   const allUsers = await db
-    .select({ userid: users.userid, name: users.name, role: users.role, email: users.email })
+    .select({
+      userid: users.userid,
+      roleId: users.roleId,
+      name: users.name,
+      role: users.role,
+      email: users.email,
+    })
     .from(users)
     .where(eq(users.role, "user"));
 
@@ -15,7 +21,13 @@ export const getAllUserService = async () => {
 
 export const getAllStaffService = async () => {
   const allUsers = await db
-    .select({ userid: users.userid, name: users.name, role: users.role, email: users.email })
+    .select({
+      userid: users.userid,
+      roleId: users.roleId,
+      name: users.name,
+      role: users.role,
+      email: users.email,
+    })
     .from(users)
     .where(eq(users.role, "staff"));
 
@@ -56,51 +68,94 @@ export const updateUserService = async (id, { name, email, role }) => {
 
 // tickets
 
-export const getTicketByStatusService = async (status) => {
-  const statuses = ["open", "in_progress", "waiting_for_user", "resolved", "closed"];
+export const getFilteredTickets = async ({
+  status,
+  priority,
+  search,
+  isUnassigned,
+  page = 1,
+  pageSize = 5,
+}) => {
+  const conditions = [];
 
   const staff = aliasedTable(users, "users_staff");
   const customer = aliasedTable(users, "users_customer");
 
-  if (!status) {
-    const openTickets = await db
-      .select({
-        id: tickets.id,
-        subject: tickets.subject,
-        description: tickets.description,
-        status: tickets.status,
-        staffName: staff.name,
-        staff_id: staff.roleId,
-        customerName: customer.name,
-        customer_id: customer.roleId,
-      })
-      .from(tickets)
-      .leftJoin(staff, eq(tickets.assignedTo, staff.userid))
-      .innerJoin(customer, eq(tickets.customerId, customer.userid));
-    return openTickets;
+  // =========================
+  // Status filter
+  // =========================
+  if (status && status !== "all") {
+    conditions.push(eq(tickets.status, status));
   }
 
-  if (!statuses.includes(status)) {
-    return "please send valid status";
+  // =========================
+  // UnAssigned check
+  // =========================
+  if (isUnassigned) {
+    conditions.push(isNull(tickets.assignedTo));
   }
 
-  const openTickets = await db
+  // =========================
+  // Priority filter
+  // =========================
+  if (priority && priority !== "all") {
+    conditions.push(eq(tickets.priority, priority));
+  }
+
+  // =========================
+  // Search
+  // =========================
+  if (search?.trim()) {
+    const searchText = `%${search.trim()}%`;
+
+    conditions.push(
+      or(
+        // tickets columns
+        ilike(tickets.subject, searchText),
+        ilike(tickets.description, searchText),
+        ilike(tickets.status, searchText),
+        ilike(tickets.priority, searchText),
+
+        // integer columns
+        sql`${tickets.id}::text ILIKE ${searchText}`,
+        sql`${tickets.customerId}::text ILIKE ${searchText}`,
+        sql`${tickets.assignedTo}::text ILIKE ${searchText}`,
+
+        // timestamp
+        sql`${tickets.createdAt}::text ILIKE ${searchText}`,
+
+        // joined columns
+        ilike(staff.name, searchText),
+        ilike(customer.name, searchText),
+      ),
+    );
+  }
+
+  const offset = (page - 1) * pageSize;
+
+  const countResult = await db
     .select({
-      id: tickets.id,
-      subject: tickets.subject,
-      description: tickets.description,
-      status: tickets.status,
-      staffName: staff.name,
-      staff_id: staff.roleId,
-      customerName: customer.name,
-      customer_id: customer.roleId,
+      total: count(),
     })
     .from(tickets)
-    .where(eq(tickets.status, status))
     .leftJoin(staff, eq(tickets.assignedTo, staff.userid))
-    .innerJoin(customer, eq(tickets.customerId, customer.userid));
+    .innerJoin(customer, eq(tickets.customerId, customer.userid))
+    .where(conditions.length > 0 ? and(...conditions) : undefined);
 
-  return openTickets;
+  const result = await db
+    .select({
+      ...tickets,
+      staffName: staff.name,
+      customerName: customer.name,
+    })
+    .from(tickets)
+    .leftJoin(staff, eq(tickets.assignedTo, staff.userid))
+    .innerJoin(customer, eq(tickets.customerId, customer.userid))
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .limit(pageSize)
+    .offset(offset);
+
+  return [countResult, result];
 };
 
 export const getTicketByIdService = async (id) => {
@@ -131,6 +186,7 @@ export const createTicketService = async (data) => {
   return ticket;
 };
 
+// ============================
 export const assignStaffService = async (tktid, userid) => {
   const ticket = await getTicketByIdService(tktid);
 
@@ -154,6 +210,7 @@ export const changeStatusService = async (tktid, status) => {
 
   return result;
 };
+// ===============================
 
 export const updateTicketService = async (id, data) => {
   const ticket = await getTicketByIdService(id);
@@ -231,8 +288,6 @@ export const getDashBoardService = async () => {
     .from(tickets)
     .groupBy(tickets.status);
 
-  console.log(statusBreakdown);
-
   const roleBreakdown = await db
     .select({
       role: users.role, // The distinct role name (e.g., 'admin', 'staff', 'customer')
@@ -241,6 +296,19 @@ export const getDashBoardService = async () => {
     .from(users)
     .groupBy(users.role);
 
-  const result = { status: statusBreakdown, role: roleBreakdown };
+  const [unAssignedTicketCount] = await db
+    .select({
+      unAssignedTicket: count(),
+    })
+    .from(tickets)
+    .where(isNull(tickets.assignedTo));
+
+  console.log(unAssignedTicketCount);
+
+  const result = {
+    status: statusBreakdown,
+    role: roleBreakdown,
+    ...unAssignedTicketCount,
+  };
   return result;
 };

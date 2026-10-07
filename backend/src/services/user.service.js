@@ -128,14 +128,22 @@ export const deleteTicketService = async (id) => {
 
 // DASHBOARD
 
-export const getDashBoardService = async (id) => {
+export const getDashBoardService = async (id, role) => {
+  let condition;
+
+  if (role === "user") {
+    eq(tickets.customerId, id);
+  } else if (role === "staff") {
+    eq(tickets.assignedTo, id);
+  }
+
   const statusBreakdown = await db
     .select({
       status: tickets.status,
       count: count(),
     })
     .from(tickets)
-    .where(eq(tickets.customerId, id))
+    .where(condition)
     .groupBy(tickets.status);
 
   const priorityBreakdown = await db
@@ -144,7 +152,7 @@ export const getDashBoardService = async (id) => {
       count: count(),
     })
     .from(tickets)
-    .where(eq(tickets.customerId, id))
+    .where(condition)
     .groupBy(tickets.priority);
 
   const result = { status: statusBreakdown, priority: priorityBreakdown };

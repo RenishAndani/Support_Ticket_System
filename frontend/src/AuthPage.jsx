@@ -6,6 +6,10 @@ const AuthPage = () => {
   const [isLogin, setIsLogin] = useState(true); // Toggle between login and register
 
   const navigate = useNavigate();
+  const [loginError, setLoginError] = useState("");
+  const [isSubmittingLogin, setIsSubmittingLogin] = useState(false);
+  const [registerError, setRegisterError] = useState("");
+  const [isSubmittingRegister, setIsSubmittingRegister] = useState(false);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -23,28 +27,49 @@ const AuthPage = () => {
   // Method to handle login request (Keep empty/ready for your logic)
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
+    setLoginError("");
+    setIsSubmittingLogin(true);
     const data = { email: formData.email, password: formData.password };
 
-    const res = await api.post("/auth/login", data);
+    try {
+      const res = await api.post("/auth/login", data);
 
-    if (res.data.success) {
-      navigate("/" + res.data.data.role);
+      if (res.data.success) {
+        navigate("/" + res.data.data.role);
+      } else {
+        setLoginError(res.data.message || "Unable to sign in. Please check your email and password.");
+      }
+    } catch (error) {
+      setLoginError(
+        error.response?.data?.message ||
+          "Unable to sign in. Please check your email and password."
+      );
+    } finally {
+      setIsSubmittingLogin(false);
     }
   };
 
   // Method to handle register request (Keep empty/ready for your logic)
   const handleRegisterSubmit = async (e) => {
+    e.preventDefault();
+    setRegisterError("");
+    setIsSubmittingRegister(true);
+
     try {
-      e.preventDefault();
       const res = await api.post("/auth/register", formData);
-      if (res.success) {
+      if (res.data.success) {
         alert("please login via this credential register successfully");
-        isLogin(true);
+        setIsLogin(true);
+      } else {
+        setRegisterError(res.data.message || "Unable to register. Please check your details.");
       }
     } catch (error) {
-      const message = error.response.data.message;
-
-      alert(message);
+      setRegisterError(
+        error.response?.data?.message ||
+          "Unable to register. Please check your details and try again."
+      );
+    } finally {
+      setIsSubmittingRegister(false);
     }
   };
 
@@ -62,6 +87,8 @@ const AuthPage = () => {
               onClick={() => {
                 setIsLogin(!isLogin);
                 setFormData({ name: "", email: "", password: "" }); // Reset form on switch
+                setLoginError("");
+                setRegisterError("");
               }}
               className='font-medium text-blue-600 hover:text-blue-500 focus:outline-none'
             >
@@ -76,6 +103,17 @@ const AuthPage = () => {
           onSubmit={isLogin ? handleLoginSubmit : handleRegisterSubmit}
         >
           <div className='space-y-4 rounded-md shadow-sm'>
+            {isLogin && loginError && (
+              <p className='text-sm text-red-600' role='alert'>
+                {loginError}
+              </p>
+            )}
+            {!isLogin && registerError && (
+              <p className='text-sm text-red-600' role='alert'>
+                {registerError}
+              </p>
+            )}
+
             {/* Name Field (Only for Register) */}
             {!isLogin && (
               <div>
@@ -128,9 +166,16 @@ const AuthPage = () => {
           <div>
             <button
               type='submit'
+              disabled={isLogin ? isSubmittingLogin : isSubmittingRegister}
               className='w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors'
             >
-              {isLogin ? "Sign In" : "Register"}
+              {isLogin
+                ? isSubmittingLogin
+                  ? "Signing In..."
+                  : "Sign In"
+                : isSubmittingRegister
+                  ? "Registering..."
+                  : "Register"}
             </button>
           </div>
         </form>

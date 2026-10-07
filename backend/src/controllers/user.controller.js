@@ -192,8 +192,7 @@ export const getComment = async (req, res, next) => {
 
 export const getDashBoard = async (req, res, next) => {
   try {
-    const result = await getDashBoardService(req.user.userid);
-
+    const result = await getDashBoardService(req.user.userid, req.user.role);
     res.json(result);
   } catch (error) {
     next(error);

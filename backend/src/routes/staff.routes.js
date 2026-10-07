@@ -11,6 +11,8 @@ import {
   getDetailTicketById,
 } from "../controllers/staff.controller.js";
 
+import { getDashBoard } from "../controllers/user.controller.js";
+
 const router = express.Router();
 
 router.use(protect);
@@ -28,5 +30,9 @@ router.patch("/tickets/status/:tktid", changeStatus);
 router.post("/ticket-comment/:tktid", addComment);
 
 router.get("/ticket-comment/:id", getCommentByTicket);
+
+// dashboard
+
+router.get("/dashboard", getDashBoard);
 
 export default router;

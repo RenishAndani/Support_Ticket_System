@@ -37,13 +37,13 @@ export const loginUser = async ({ email, password }) => {
   const [user] = await db.select().from(users).where(eq(users.email, email));
 
   if (!user) {
-    throw new Error("Invalid email or password");
+    return "Invalid";
   }
 
   const passwordMatched = await bcrypt.compare(password, user.passwordHash);
 
   if (!passwordMatched) {
-    throw new Error("Invalid email or password");
+    return "Invalid email or password";
   }
 
   const token = jwt.sign(

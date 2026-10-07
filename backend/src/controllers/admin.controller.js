@@ -4,7 +4,7 @@ import {
   createUserService,
   deleteUserService,
   assignStaffService,
-  getTicketByStatusService,
+  getFilteredTickets,
   getTicketByIdService,
   dropdownStaffService,
   changeStatusService,
@@ -105,13 +105,24 @@ export const updateUser = async (req, res, next) => {
 
 // tickets
 
-export const getTicketsByStatus = async (req, res, next) => {
+export const getTickets = async (req, res, next) => {
   try {
-    const { status } = req.query;
+    const { status, priority, search, isUnassigned, page, pageSize } = req.query;
 
-    const data = await getTicketByStatusService(status);
+    const tickets = await getFilteredTickets({
+      status,
+      priority,
+      search,
+      isUnassigned,
+      page,
+      pageSize,
+    });
 
-    res.json(data);
+    res.status(200).json({
+      success: true,
+      count: tickets[0],
+      tickets: tickets[1],
+    });
   } catch (error) {
     next(error);
   }

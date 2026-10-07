@@ -129,6 +129,7 @@ const Staff = () => {
               <th className='px-6 py-3 text-xs font-semibold text-gray-500 uppercase'>Name</th>
               <th className='px-6 py-3 text-xs font-semibold text-gray-500 uppercase'>Email</th>
               <th className='px-6 py-3 text-xs font-semibold text-gray-500 uppercase'>Role</th>
+              <th className='px-6 py-3 text-xs font-semibold text-gray-500 uppercase'>Role ID</th>
               <th className='px-6 py-3 text-xs font-semibold text-gray-500 uppercase text-right'>
                 Actions
               </th>
@@ -156,6 +157,7 @@ const Staff = () => {
                         {user.role || "User"}
                       </span>
                     </td>
+                    <td className='px-6 py-4 text-sm text-gray-500 font-mono'>{user.roleId}</td>
                     <td className='px-6 py-4 text-right text-sm space-x-2'>
                       <button
                         onClick={() => handleEditClick(uid)}

@@ -13,7 +13,6 @@ const AdminLayout = () => {
       console.error("Logout API failed:", err);
     } finally {
       // Clear local storage / tokens if any, then navigate
-      localStorage.clear();
       navigate("/");
     }
   };

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import api from "../../api/api";
 
 const Dashboard = () => {
-  const [stats, setStats] = useState({ status: [], role: [] });
+  const [stats, setStats] = useState({ status: [], role: [], unAssignedTicketCount: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -16,6 +16,8 @@ const Dashboard = () => {
         setLoading(true);
         // Replace with your actual dashboard endpoint if different
         const response = await api.get("/admin/dashboard");
+        console.log(response);
+
         setStats(response.data);
       } catch (err) {
         console.error("Failed to fetch dashboard stats:", err);
@@ -72,6 +74,21 @@ const Dashboard = () => {
         <p className='text-sm text-gray-500'>
           Summary of system tickets by status and users by role.
         </p>
+      </div>
+
+      {/* NEW: Unassigned Tickets Highlight Card */}
+      <div className='bg-amber-50 rounded-xl shadow-sm border border-amber-200 p-5 flex items-center justify-between'>
+        <div>
+          <span className='text-xs font-semibold uppercase tracking-wider text-amber-700'>
+            Unassigned Tickets
+          </span>
+          <p className='text-sm text-amber-600 mt-0.5'>
+            Tickets currently waiting to be assigned to a staff member.
+          </p>
+        </div>
+        <div className='text-3xl font-extrabold text-amber-900'>
+          {stats.unAssignedTicketCount ?? 0}
+        </div>
       </div>
 
       {/* Ticket Status Section */}

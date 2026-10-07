@@ -5,7 +5,7 @@ import {
   getUserById,
   createUser,
   deleteUser,
-  getTicketsByStatus,
+  getTickets,
   getTicketById,
   assignStaff,
   dropdownStaff,
@@ -46,7 +46,7 @@ router.put("/users/:id", updateUser);
 
 // tickets
 
-router.get("/tickets", getTicketsByStatus);
+router.get("/tickets", getTickets);
 
 router.post("/tickets", createTicket);
 

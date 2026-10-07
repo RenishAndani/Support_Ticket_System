@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import api from "../../api/api";
 import { useNavigate } from "react-router-dom";
+import { useDebouncedCallback } from "use-debounce";
 
 const Tickets = () => {
   //==========FOR COMMENT=================
-  // Add Comment Modal States
   const [isCommentModalOpen, setIsCommentModalOpen] = useState(false);
   const [commentTicketId, setCommentTicketId] = useState(null);
   const [commentMessage, setCommentMessage] = useState("");
@@ -12,7 +12,6 @@ const Tickets = () => {
   // ========================
 
   //=========FOR SHOW COMMENT==============
-  // Show Comments Modal States
   const [isCommentsListOpen, setIsCommentsListOpen] = useState(false);
   const [commentsList, setCommentsList] = useState([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
@@ -22,18 +21,28 @@ const Tickets = () => {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const navigate = useNavigate();
 
-  // Status Filter State
-  const [currentStatus, setCurrentStatus] = useState("open");
+  // Filter States
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+
+  const [currentStatus, setCurrentStatus] = useState("all");
+  const [currentPriority, setCurrentPriority] = useState("all");
+  // Applied states (what is actually sent to API when Filter is clicked)
+  const [appliedStatus, setAppliedStatus] = useState("all");
+  const [appliedPriority, setAppliedPriority] = useState("all");
+
+  const [isUnassigned, setIsUnassigned] = useState(false);
+
+  const navigate = useNavigate();
 
   // Modal States
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);
-  const [submitting, setSubmitting] = useState(false);
 
-  // Allowed statuses
+  // Filter Options
   const statusOptions = [
+    { label: "All Status", value: "all" },
     { label: "Open", value: "open" },
     { label: "In Progress", value: "in_progress" },
     { label: "Waiting for User", value: "waiting_for_user" },
@@ -41,24 +50,45 @@ const Tickets = () => {
     { label: "Closed", value: "closed" },
   ];
 
-  // Fetch tickets whenever currentStatus changes
-  useEffect(() => {
-    fetchTicketsByStatus(currentStatus);
-  }, [currentStatus]);
+  const priorityOptions = [
+    { label: "All Priority", value: "all" },
+    { label: "Low", value: "Low" },
+    { label: "Medium", value: "Medium" },
+    { label: "High", value: "High" },
+  ];
 
-  // Handle Add Ticket Button Click
-  const handleAddTicketClick = () => {
-    navigate("/admin/add-ticket");
+  // Debounce search input (waits 500ms after typing stops)
+  const handleDebouncedSearch = useDebouncedCallback((value) => {
+    setDebouncedSearchTerm(value);
+  }, 500);
+
+  const handleSearchChange = (e) => {
+    const value = e.target.value;
+    setSearchTerm(value);
+    handleDebouncedSearch(value);
   };
 
-  const fetchTicketsByStatus = async (status) => {
+  // Fetch tickets including status, priority, and search API parameters
+  const fetchTickets = useCallback(async () => {
     try {
       setLoading(true);
-      // GET /admin/tickets with query parameter status
-      const response = await api.get(`/admin/tickets`, {
-        params: { status },
-      });
-      setTickets(response.data.tickets || response.data);
+      const params = {};
+
+      if (currentStatus !== "all") params.status = currentStatus;
+      if (currentPriority !== "all") params.priority = currentPriority;
+      if (debouncedSearchTerm.trim() !== "") {
+        params.search = debouncedSearchTerm.trim();
+      }
+      if (isUnassigned) params.isUnassigned = true;
+
+      const response = await api.get(`/admin/tickets`, { params });
+      const fetchedTickets = response.data?.tickets ?? response.data;
+
+      if (!Array.isArray(fetchedTickets)) {
+        throw new Error("Unexpected tickets response format.");
+      }
+
+      setTickets(fetchedTickets);
       setError(null);
     } catch (err) {
       console.error("Failed to fetch tickets:", err);
@@ -66,16 +96,19 @@ const Tickets = () => {
     } finally {
       setLoading(false);
     }
+  }, [appliedStatus, appliedPriority, debouncedSearchTerm, isUnassigned]);
+
+  useEffect(() => {
+    fetchTickets();
+  }, [fetchTickets]);
+
+  const handleAddTicketClick = () => {
+    navigate("/admin/add-ticket");
   };
 
-  // Handle Detail Button Click: GET /admin/tickets/:id
   const handleDetailClick = async (ticketId) => {
-    console.log(ticketId);
-
     try {
       const response = await api.get(`/admin/tickets/${ticketId}`);
-      console.log(response);
-
       setSelectedTicket(response.data.ticket || response.data);
       setIsDetailOpen(true);
     } catch (err) {
@@ -84,22 +117,15 @@ const Tickets = () => {
     }
   };
 
-  // Handle Edit Button Click: GET details & open form
-  const handleEditClick = async (ticketId) => {
-    try {
-      navigate(`/admin/edit-ticket/${ticketId}`);
-    } catch (err) {
-      console.error("Failed to load ticket for editing:", err);
-      alert("Could not load ticket data.");
-    }
+  const handleEditClick = (ticketId) => {
+    navigate(`/admin/edit-ticket/${ticketId}`);
   };
 
-  // Handle Delete: DELETE /admin/tickets/:id
   const handleDelete = async (ticketId) => {
     if (window.confirm("Are you sure you want to delete this ticket?")) {
       try {
         await api.delete(`/admin/tickets/${ticketId}`);
-        fetchTicketsByStatus(currentStatus);
+        fetchTickets();
       } catch (err) {
         console.error("Failed to delete ticket:", err);
         alert("Failed to delete ticket.");
@@ -107,14 +133,12 @@ const Tickets = () => {
     }
   };
 
-  // Handle Add Comment Button Click: Open modal
   const handleAddCommentClick = (ticketId) => {
     setCommentTicketId(ticketId);
     setCommentMessage("");
     setIsCommentModalOpen(true);
   };
 
-  // Handle Submit Comment: POST request
   const handleCommentSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -133,16 +157,27 @@ const Tickets = () => {
     }
   };
 
-  // Handle Show Comment Button Click
-  // Handle Show Comment Button Click: Fetch comments & open modal
+  const handleApplyFilters = () => {
+    setAppliedStatus(currentStatus);
+    setAppliedPriority(currentPriority);
+  };
+
+  const handleClearFilters = () => {
+    setSearchTerm("");
+    setDebouncedSearchTerm("");
+    setCurrentStatus("all");
+    setCurrentPriority("all");
+    setAppliedStatus("all");
+    setAppliedPriority("all");
+    setIsUnassigned(false);
+  };
+
   const handleShowCommentClick = async (ticketId) => {
     setCommentsTicketId(ticketId);
     setIsCommentsListOpen(true);
     setCommentsLoading(true);
     try {
       const response = await api.get(`/admin/ticket-comment/${ticketId}`);
-      console.log(response);
-
       setCommentsList(response.data.comments || response.data || []);
     } catch (err) {
       console.error("Failed to fetch comments:", err);
@@ -153,7 +188,6 @@ const Tickets = () => {
     }
   };
 
-  // Helper badge color mapper for statuses
   const getStatusBadge = (status) => {
     const styles = {
       open: "bg-yellow-100 text-yellow-800",
@@ -165,37 +199,123 @@ const Tickets = () => {
     return styles[status] || "bg-gray-100 text-gray-800";
   };
 
+  const getPriorityBadge = (priority) => {
+    const styles = {
+      High: "bg-red-100 text-red-800",
+      Medium: "bg-orange-100 text-orange-800",
+      Low: "bg-slate-100 text-slate-800",
+    };
+    return styles[priority] || "bg-gray-100 text-gray-800";
+  };
+
   return (
     <div className='space-y-6'>
-      {/* Header & Status Filter Selector */}
-      <div className='flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4'>
+      {/* Header & Add Ticket action */}
+      <div className='flex items-start justify-between gap-4'>
         <div>
           <h2 className='text-2xl font-bold text-gray-800'>Tickets Management</h2>
           <p className='text-sm text-gray-500'>Filter and manage customer support requests.</p>
         </div>
+        <button
+          onClick={handleAddTicketClick}
+          className='px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm whitespace-nowrap'
+        >
+          + Add Ticket
+        </button>
+      </div>
 
-        {/* Status Selection Tabs/Dropdown */}
-        <div className='flex flex-wrap items-center gap-3 w-full sm:w-auto justify-between sm:justify-end pb-2 sm:pb-0'>
-          <button
-            onClick={handleAddTicketClick}
-            className='px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold transition-colors shadow-sm whitespace-nowrap'
-          >
-            + Add Ticket
-          </button>
-          <div className='flex items-center gap-2 overflow-x-auto'>
-            {statusOptions.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => setCurrentStatus(opt.value)}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
-                  currentStatus === opt.value
-                    ? "bg-blue-600 text-white shadow-sm"
-                    : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
+      {/* Filter and Search Bar Section */}
+      <div className='bg-white p-4 rounded-xl shadow-sm border border-gray-200 space-y-4'>
+        <div className='grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end'>
+          {/* Search Bar */}
+          <div>
+            <label
+              htmlFor='ticket-search'
+              className='block text-xs font-semibold text-gray-600 uppercase mb-1'
+            >
+              Search
+            </label>
+            <input
+              id='ticket-search'
+              type='search'
+              value={searchTerm}
+              onChange={handleSearchChange}
+              placeholder='Search any field...'
+              className='w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm'
+            />
+          </div>
+
+          {/* Status Filter */}
+          <div>
+            <label className='block text-xs font-semibold text-gray-600 uppercase mb-1'>
+              Status
+            </label>
+            <select
+              value={currentStatus}
+              onChange={(e) => setCurrentStatus(e.target.value)}
+              className='w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm bg-white'
+            >
+              {statusOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Priority Filter */}
+          <div>
+            <label className='block text-xs font-semibold text-gray-600 uppercase mb-1'>
+              Priority
+            </label>
+            <select
+              value={currentPriority}
+              onChange={(e) => setCurrentPriority(e.target.value)}
+              className='w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm bg-white'
+            >
+              {priorityOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Unassigned Toggle Button */}
+          <div className='flex items-center h-10'>
+            <button
+              type='button'
+              onClick={() => setIsUnassigned((prev) => !prev)}
+              className={`w-full px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm ${
+                isUnassigned
+                  ? "bg-amber-600 hover:bg-amber-700 text-white"
+                  : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+              }`}
+            >
+              {isUnassigned ? "Showing Unassigned" : "Unassigned"}
+            </button>
+          </div>
+
+          {/* Filter Button  */}
+          <div>
+            <button
+              type='button'
+              onClick={handleApplyFilters}
+              className='w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors shadow-sm'
+            >
+              Filter
+            </button>
+          </div>
+
+          {/* Clear Filters Button */}
+          <div>
+            <button
+              type='button'
+              onClick={handleClearFilters}
+              className='w-full px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-semibold transition-colors shadow-sm'
+            >
+              Clear Filters
+            </button>
           </div>
         </div>
       </div>
@@ -210,19 +330,31 @@ const Tickets = () => {
           <div className='bg-red-50 text-red-600 p-4 m-4 rounded-md'>{error}</div>
         ) : (
           <div className='overflow-x-auto'>
-            <table className='min-w-full divide-y divide-gray-200 text-left'>
+            <table className='w-full min-w-[1200px] table-fixed divide-y divide-gray-200 text-left'>
               <thead className='bg-gray-50'>
                 <tr>
-                  <th className='px-6 py-3 text-xs font-semibold text-gray-500 uppercase'>
-                    Ticket ID
+                  <th className='w-20 px-4 py-3 text-xs font-semibold text-gray-500 uppercase'>
+                    ID
                   </th>
-                  <th className='px-6 py-3 text-xs font-semibold text-gray-500 uppercase'>
-                    Title / Subject
+                  <th className='w-40 px-4 py-3 text-xs font-semibold text-gray-500 uppercase'>
+                    Subject
                   </th>
-                  <th className='px-6 py-3 text-xs font-semibold text-gray-500 uppercase'>
+                  <th className='w-64 px-4 py-3 text-xs font-semibold text-gray-500 uppercase'>
+                    Description
+                  </th>
+                  <th className='w-32 px-4 py-3 text-xs font-semibold text-gray-500 uppercase'>
                     Status
                   </th>
-                  <th className='px-6 py-3 text-xs font-semibold text-gray-500 uppercase text-right'>
+                  <th className='w-28 px-4 py-3 text-xs font-semibold text-gray-500 uppercase'>
+                    Priority
+                  </th>
+                  <th className='w-32 px-4 py-3 text-xs font-semibold text-gray-500 uppercase'>
+                    Staff Name
+                  </th>
+                  <th className='w-36 px-4 py-3 text-xs font-semibold text-gray-500 uppercase'>
+                    Customer Name
+                  </th>
+                  <th className='w-72 px-4 py-3 text-xs font-semibold text-gray-500 uppercase'>
                     Actions
                   </th>
                 </tr>
@@ -230,60 +362,81 @@ const Tickets = () => {
               <tbody className='bg-white divide-y divide-gray-200'>
                 {tickets.length > 0 ? (
                   tickets.map((ticket) => {
-                    const tid = ticket.ticketid || ticket.id;
+                    const tid = ticket.id ?? ticket.ticketid;
                     return (
                       <tr key={tid} className='hover:bg-gray-50 transition-colors'>
-                        <td className='px-6 py-4 text-sm font-medium text-gray-900'>{tid}</td>
-                        <td className='px-6 py-4 text-sm text-gray-700 font-medium'>
-                          {ticket.title || ticket.subject}
+                        <td className='px-4 py-4 text-sm font-medium text-gray-900'>{tid}</td>
+                        <td className='px-4 py-4 text-sm text-gray-700 font-medium break-words'>
+                          {ticket.subject || ticket.title || "N/A"}
                         </td>
-                        <td className='px-6 py-4 text-sm'>
+                        <td className='px-4 py-4 text-sm text-gray-700 whitespace-pre-wrap break-words'>
+                          {ticket.description || "N/A"}
+                        </td>
+                        <td className='px-4 py-4 text-sm'>
                           <span
-                            className={`px-2.5 py-1 text-xs font-semibold rounded-full uppercase ${getStatusBadge(ticket.status)}`}
+                            className={`px-2.5 py-1 text-xs font-semibold rounded-full uppercase ${getStatusBadge(
+                              ticket.status,
+                            )}`}
                           >
                             {ticket.status?.replace(/_/g, " ")}
                           </span>
                         </td>
-                        <td className='px-6 py-4 text-right text-sm space-x-2'>
-                          <button
-                            onClick={() => handleDetailClick(tid)}
-                            className='text-gray-700 bg-gray-100 hover:bg-gray-200 px-3 py-1 rounded transition-colors'
+                        <td className='px-4 py-4 text-sm'>
+                          <span
+                            className={`px-2.5 py-1 text-xs font-semibold rounded-full ${getPriorityBadge(
+                              ticket.priority,
+                            )}`}
                           >
-                            Detail
-                          </button>
-                          <button
-                            onClick={() => handleAddCommentClick(tid)}
-                            className='text-green-600 bg-green-50 hover:bg-green-100 px-3 py-1 rounded transition-colors'
-                          >
-                            Add Comment
-                          </button>
-                          <button
-                            onClick={() => handleShowCommentClick(tid)}
-                            className='text-purple-600 bg-purple-50 hover:bg-purple-100 px-3 py-1 rounded transition-colors'
-                          >
-                            Show Comment
-                          </button>
-                          <button
-                            onClick={() => handleEditClick(tid)}
-                            className='text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded transition-colors'
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDelete(tid)}
-                            className='text-red-600 bg-red-50 hover:bg-red-100 px-3 py-1 rounded transition-colors'
-                          >
-                            Delete
-                          </button>
+                            {ticket.priority || "N/A"}
+                          </span>
+                        </td>
+                        <td className='px-4 py-4 text-sm text-gray-700 break-words'>
+                          {ticket.staffName || "Unassigned"}
+                        </td>
+                        <td className='px-4 py-4 text-sm text-gray-700 break-words'>
+                          {ticket.customerName || "N/A"}
+                        </td>
+                        <td className='px-4 py-4 text-sm'>
+                          <div className='flex flex-wrap gap-2'>
+                            <button
+                              onClick={() => handleDetailClick(tid)}
+                              className='whitespace-nowrap text-gray-700 bg-gray-100 hover:bg-gray-200 px-2.5 py-1.5 rounded transition-colors text-xs font-medium'
+                            >
+                              Detail
+                            </button>
+                            <button
+                              onClick={() => handleAddCommentClick(tid)}
+                              className='whitespace-nowrap text-green-600 bg-green-50 hover:bg-green-100 px-2.5 py-1.5 rounded transition-colors text-xs font-medium'
+                            >
+                              Comment
+                            </button>
+                            <button
+                              onClick={() => handleShowCommentClick(tid)}
+                              className='whitespace-nowrap text-purple-600 bg-purple-50 hover:bg-purple-100 px-2.5 py-1.5 rounded transition-colors text-xs font-medium'
+                            >
+                              View
+                            </button>
+                            <button
+                              onClick={() => handleEditClick(tid)}
+                              className='whitespace-nowrap text-blue-600 bg-blue-50 hover:bg-blue-100 px-2.5 py-1.5 rounded transition-colors text-xs font-medium'
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDelete(tid)}
+                              className='whitespace-nowrap text-red-600 bg-red-50 hover:bg-red-100 px-2.5 py-1.5 rounded transition-colors text-xs font-medium'
+                            >
+                              Delete
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
                   })
                 ) : (
                   <tr>
-                    <td colSpan='4' className='px-6 py-8 text-center text-gray-500'>
-                      No tickets found with status:{" "}
-                      <strong className='capitalize'>{currentStatus.replace(/_/g, " ")}</strong>
+                    <td colSpan='8' className='px-6 py-8 text-center text-gray-500'>
+                      No tickets match your search or filter criteria.
                     </td>
                   </tr>
                 )}
@@ -295,7 +448,7 @@ const Tickets = () => {
 
       {/* Ticket Details Modal */}
       {isDetailOpen && selectedTicket && (
-        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 bg-opacity-50 px-4'>
+        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4'>
           <div className='w-full max-w-lg bg-white p-6 rounded-xl shadow-xl space-y-4'>
             <div className='flex justify-between items-center pb-3 border-b'>
               <h3 className='text-lg font-bold text-gray-800'>
@@ -329,7 +482,9 @@ const Tickets = () => {
                 <p>
                   <strong>Status:</strong>{" "}
                   <span
-                    className={`px-2 py-0.5 rounded-full text-xs font-semibold uppercase ${getStatusBadge(selectedTicket.status)}`}
+                    className={`px-2 py-0.5 rounded-full text-xs font-semibold uppercase ${getStatusBadge(
+                      selectedTicket.status,
+                    )}`}
                   >
                     {selectedTicket.status?.replace(/_/g, " ")}
                   </span>
@@ -344,12 +499,10 @@ const Tickets = () => {
 
               <div className='grid grid-cols-2 gap-3'>
                 <p>
-                  <strong>Customer Name:</strong> {selectedTicket.customerName || "N/A"}(
-                  {selectedTicket.customerId})
+                  <strong>Customer Name:</strong> {selectedTicket.customerName || "N/A"}
                 </p>
                 <p>
-                  <strong>Assigned Staff:</strong> {selectedTicket.staffName || "Unassigned"}(
-                  {selectedTicket.assignedTo})
+                  <strong>Assigned Staff:</strong> {selectedTicket.staffName || "Unassigned"}
                 </p>
               </div>
 
@@ -374,7 +527,7 @@ const Tickets = () => {
 
       {/* Add Comment Modal */}
       {isCommentModalOpen && (
-        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 bg-opacity-50 px-4'>
+        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4'>
           <div className='w-full max-w-md bg-white p-6 rounded-xl shadow-xl space-y-4'>
             <div className='flex justify-between items-center pb-3 border-b'>
               <h3 className='text-lg font-bold text-gray-800'>
@@ -422,7 +575,7 @@ const Tickets = () => {
 
       {/* Show Comments Modal */}
       {isCommentsListOpen && (
-        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 bg-opacity-50 px-4'>
+        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4'>
           <div className='w-full max-w-lg bg-white p-6 rounded-xl shadow-xl space-y-4'>
             <div className='flex justify-between items-center pb-3 border-b'>
               <h3 className='text-lg font-bold text-gray-800'>
