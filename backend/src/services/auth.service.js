@@ -57,6 +57,17 @@ export const loginUser = async ({ email, password }) => {
     },
   );
 
+  const refreshToken = jwt.sign(
+    {
+      userId: user.userid,
+      role: user.role,
+    },
+    env.jwtRefreshSecret,
+    {
+      expiresIn: "7d",
+    },
+  );
+
   return {
     user: {
       userId: user.userid,
@@ -65,18 +76,15 @@ export const loginUser = async ({ email, password }) => {
       role: user.role,
     },
     token,
+    refreshToken,
   };
 };
 
-export const getUserById = async (userid) => {
+export const findUserById = async (userid) => {
   const [user] = await db
-    .select({ userid: users.userid, name: users.name, role: users.role })
+    .select({ userid: users.userid, name: users.name, role: users.role, email: users.email })
     .from(users)
     .where(eq(users.userid, userid));
-
-  if (!user) {
-    throw new Error("user not exist");
-  }
 
   return user;
 };

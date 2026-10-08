@@ -3,6 +3,7 @@ import DashBoard from "./admin/pages/DashBoard";
 import "./App.css";
 
 import { BrowserRouter, Route, Routes } from "react-router-dom";
+import Protect from "./Protect";
 import AuthPage from "./AuthPage";
 import Users from "./admin/pages/UserPage";
 import Staff from "./admin/pages/Staff";
@@ -25,26 +26,32 @@ function App() {
           <Route path='/' element={<AuthPage />} />
 
           {/* =========ADMIN============= */}
-          <Route path='/admin' element={<AdminLayout />}>
-            <Route index element={<DashBoard />} replace />
-            <Route path='staff' element={<Staff />} />
-            <Route path='tickets' element={<Ticket />} />
-            <Route path='users' element={<Users />} />
-            <Route path='edit-ticket/:id' element={<EditTicket />} />
-            <Route path='add-ticket' element={<AddTicket />} />
+          <Route element={<Protect allowedRoles={["admin"]} />}>
+            <Route path='/admin' element={<AdminLayout />}>
+              <Route index element={<DashBoard />} replace />
+              <Route path='staff' element={<Staff />} />
+              <Route path='tickets' element={<Ticket />} />
+              <Route path='users' element={<Users />} />
+              <Route path='edit-ticket/:id' element={<EditTicket />} />
+              <Route path='add-ticket' element={<AddTicket />} />
+            </Route>
           </Route>
 
           {/* =================STAFF=============== */}
-          <Route path='/staff' element={<StaffLayout />}>
-            <Route index element={<StaffDashBoard />} replace />
-            <Route path='assigned-tickets' element={<AssignedTickets />} />
+          <Route element={<Protect allowedRoles={["staff"]} />}>
+            <Route path='/staff' element={<StaffLayout />}>
+              <Route index element={<StaffDashBoard />} replace />
+              <Route path='assigned-tickets' element={<AssignedTickets />} />
+            </Route>
           </Route>
 
           {/* =====================USER=================== */}
-          <Route path='/user' element={<UserLayout />}>
-            <Route index element={<UserDashBoard />} replace />
-            <Route path='my-tickets' element={<MyTickets />} />
-            <Route path='ticket-form/:id?' element={<TicketForm />} />
+          <Route element={<Protect allowedRoles={["user"]} />}>
+            <Route path='/user' element={<UserLayout />}>
+              <Route index element={<UserDashBoard />} replace />
+              <Route path='my-tickets' element={<MyTickets />} />
+              <Route path='ticket-form/:id?' element={<TicketForm />} />
+            </Route>
           </Route>
         </Routes>
       </BrowserRouter>

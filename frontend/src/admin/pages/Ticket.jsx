@@ -36,6 +36,12 @@ const Tickets = () => {
 
   const navigate = useNavigate();
 
+  // Add these with your other states
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [pageInput, setPageInput] = useState("1");
+
   // Modal States
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);
@@ -72,7 +78,10 @@ const Tickets = () => {
   const fetchTickets = useCallback(async () => {
     try {
       setLoading(true);
-      const params = {};
+      const params = {
+        page,
+        pageSize,
+      };
 
       if (currentStatus !== "all") params.status = currentStatus;
       if (currentPriority !== "all") params.priority = currentPriority;
@@ -82,6 +91,8 @@ const Tickets = () => {
       if (isUnassigned) params.isUnassigned = true;
 
       const response = await api.get(`/admin/tickets`, { params });
+      setTotalPages(Math.ceil(response.data.count[0].total / pageSize));
+
       const fetchedTickets = response.data?.tickets ?? response.data;
 
       if (!Array.isArray(fetchedTickets)) {
@@ -96,7 +107,7 @@ const Tickets = () => {
     } finally {
       setLoading(false);
     }
-  }, [appliedStatus, appliedPriority, debouncedSearchTerm, isUnassigned]);
+  }, [appliedStatus, appliedPriority, debouncedSearchTerm, isUnassigned, page, pageSize]);
 
   useEffect(() => {
     fetchTickets();
@@ -444,6 +455,81 @@ const Tickets = () => {
             </table>
           </div>
         )}
+      </div>
+      {/* Pagination Controls */}
+      <div className='flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-200'>
+        <div className='flex items-center gap-2 text-sm text-gray-700'>
+          <span>Rows per page:</span>
+          <select
+            value={pageSize}
+            onChange={(e) => {
+              setPageSize(Number(e.target.value));
+              setPage(1);
+              setPageInput("1");
+            }}
+            className='px-2 py-1 border border-gray-300 rounded-md text-sm bg-white'
+          >
+            <option value={5}>5</option>
+            <option value={10}>10</option>
+            <option value={20}>20</option>
+            <option value={50}>50</option>
+          </select>
+        </div>
+
+        <div className='flex items-center gap-3 text-sm text-gray-700'>
+          <button
+            onClick={() => {
+              const newPage = page - 1;
+              setPage(newPage);
+              setPageInput(String(newPage));
+            }}
+            disabled={page <= 1}
+            className='px-3 py-1.5 border border-gray-300 rounded-md bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed font-medium'
+          >
+            Previous
+          </button>
+
+          <div className='flex items-center gap-1.5'>
+            <span>Page</span>
+            <input
+              type='number'
+              min={1}
+              max={totalPages}
+              value={pageInput}
+              onChange={(e) => setPageInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  let p = parseInt(pageInput, 10);
+                  if (isNaN(p) || p < 1) p = 1;
+                  if (p > totalPages) p = totalPages;
+                  setPage(p);
+                  setPageInput(String(p));
+                }
+              }}
+              onBlur={() => {
+                let p = parseInt(pageInput, 10);
+                if (isNaN(p) || p < 1) p = 1;
+                if (p > totalPages) p = totalPages;
+                setPage(p);
+                setPageInput(String(p));
+              }}
+              className='w-16 px-2 py-1 text-center border border-gray-300 rounded-md text-sm'
+            />
+            <span>of {totalPages}</span>
+          </div>
+
+          <button
+            onClick={() => {
+              const newPage = page + 1;
+              setPage(newPage);
+              setPageInput(String(newPage));
+            }}
+            disabled={page >= totalPages}
+            className='px-3 py-1.5 border border-gray-300 rounded-md bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed font-medium'
+          >
+            Next
+          </button>
+        </div>
       </div>
 
       {/* Ticket Details Modal */}
