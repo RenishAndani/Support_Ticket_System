@@ -129,12 +129,12 @@ export const deleteTicketService = async (id) => {
 // DASHBOARD
 
 export const getDashBoardService = async (id, role) => {
-  let condition;
+  let condition = [];
 
   if (role === "user") {
-    eq(tickets.customerId, id);
+    condition.push(eq(tickets.customerId, id));
   } else if (role === "staff") {
-    eq(tickets.assignedTo, id);
+    condition.push(eq(tickets.assignedTo, id));
   }
 
   const statusBreakdown = await db
@@ -156,5 +156,8 @@ export const getDashBoardService = async (id, role) => {
     .groupBy(tickets.priority);
 
   const result = { status: statusBreakdown, priority: priorityBreakdown };
+
+  console.log(result);
+
   return result;
 };
